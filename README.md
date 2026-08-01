@@ -60,15 +60,13 @@ run_ui_tests.bat
 ![测试报告](./images/allure-report.png)
 
 ## 🔗 相关链接
-OpenCart 官网
-
-Playwright 文档
-
-Allure 报告
+- [OpenCart 官网](https://www.opencart.com/)
+- [Playwright 文档](https://playwright.dev/python/docs/intro)
+- [Allure 报告](http://127.0.0.1:8080)
 
 ## 📌 测试环境
 OpenCart 4.x（本地部署）
 
-测试地址：http://localhost/opencart
+测试地址：[http://localhost/opencart](http://localhost/opencart)
 
 测试账号：[mytest203@test.com](mailto:mytest203@test.com) / Open2026
