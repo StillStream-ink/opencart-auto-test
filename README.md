@@ -54,17 +54,17 @@ allure serve ./allure-results
 
 # 一键运行（Windows）
 run_ui_tests.bat
-📄 测试报告
+## 📄 测试报告
 https://./reports/allure-report.png
 
-🔗 相关链接
+## 🔗 相关链接
 OpenCart 官网
 
 Playwright 文档
 
 Allure 报告
 
-📌 测试环境
+## 📌 测试环境
 OpenCart 4.x（本地部署）
 
 测试地址：http://localhost/opencart
