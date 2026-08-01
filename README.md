@@ -57,7 +57,7 @@ run_ui_tests.bat
 ```
 
 ## 📄 测试报告
-https://./reports/allure-report.png
+![测试报告](./images/allure-report.png)
 
 ## 🔗 相关链接
 OpenCart 官网
