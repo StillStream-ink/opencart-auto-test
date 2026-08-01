@@ -71,4 +71,4 @@ OpenCart 4.x（本地部署）
 
 测试地址：http://localhost/opencart
 
-测试账号：mytest203@test.com / Open2026
+测试账号：[mytest203@test.com](mailto:mytest203@test.com) / Open2026
