@@ -54,6 +54,8 @@ allure serve ./allure-results
 
 # 一键运行（Windows）
 run_ui_tests.bat
+```
+
 ## 📄 测试报告
 https://./reports/allure-report.png
 
