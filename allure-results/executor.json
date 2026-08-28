@@ -1,0 +1,5 @@
+{
+  "name": "OpenCart UI Automation",
+  "type": "local",
+  "buildName": "OpenCart Playwright Tests"
+}

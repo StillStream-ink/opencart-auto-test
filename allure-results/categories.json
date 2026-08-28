@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Product defects",
+    "matchedStatuses": [
+      "failed"
+    ],
+    "severity": "critical"
+  },
+  {
+    "name": "Test defects",
+    "matchedStatuses": [
+      "broken"
+    ],
+    "severity": "critical"
+  }
+]

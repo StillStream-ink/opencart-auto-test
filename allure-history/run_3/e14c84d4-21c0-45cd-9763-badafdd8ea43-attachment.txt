@@ -1,0 +1,8 @@
+
+【调试】实际输入邮箱: mytest203@test.com
+【调试】实际输入密码: Open2026
+
+
+【登录后URL】http://127.0.0.1/opencart/index.php?route=account/account&language=en-gb&customer_token=c723ab0ab07c6d2d6ee9bd9b02
+
+✅ 响应时间 6878ms
