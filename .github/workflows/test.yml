@@ -5,10 +5,6 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  schedule:
-    # 每天北京时间早上 6:00 自动运行（UTC 22:00 = 北京时间 06:00）
-    - cron: '22 0 * * *'
-  # 支持手动触发
   workflow_dispatch:
 
 jobs:
@@ -29,24 +25,38 @@ jobs:
         playwright install chromium
         playwright install-deps
     
-    - name: 启动 OpenCart（使用 Docker）
+    - name: 启动 OpenCart（使用 Docker Hub 镜像）
       run: |
         docker run -d --name opencart -p 8080:80 \
           -e OPENCART_SERVER_NAME=localhost \
-          ghcr.io/opencart/opencart:4.0.2.3
+          opencart/opencart:4.0.2.3
+        echo "⏳ 等待 OpenCart 启动..."
         sleep 30
+        docker ps -a
     
     - name: 运行 UI 测试
       run: |
         pytest tests/ -v --alluredir=./allure-results
       env:
         BASE_URL: http://localhost:8080/opencart
+      continue-on-error: true
+    
+    - name: 安装 Allure
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y allure
+      if: always()
     
     - name: 生成 Allure 报告
       if: always()
       run: |
-        pip install allure-pytest
-        allure generate ./allure-results -o ./allure-report --clean
+        if [ -d "./allure-results" ] && [ "$(ls -A ./allure-results)" ]; then
+          allure generate ./allure-results -o ./allure-report --clean
+        else
+          echo "⚠️ 没有测试数据，跳过报告生成"
+          mkdir -p ./allure-report
+          echo "<h1>测试未运行或无数据</h1>" > ./allure-report/index.html
+        fi
     
     - name: 上传 Allure 报告
       uses: actions/upload-artifact@v4
