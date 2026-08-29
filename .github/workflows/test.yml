@@ -25,14 +25,12 @@ jobs:
         playwright install chromium
         playwright install-deps
     
-    - name: 启动 OpenCart（使用 Docker Hub 镜像）
+    - name: 安装 Allure
       run: |
-        docker run -d --name opencart -p 8080:80 \
-          -e OPENCART_SERVER_NAME=localhost \
-          opencart/opencart:4.0.2.3
-        echo "⏳ 等待 OpenCart 启动..."
-        sleep 30
-        docker ps -a
+        curl -sL https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip -o allure.zip
+        unzip allure.zip
+        echo "$PWD/allure-2.29.0/bin" >> $GITHUB_PATH
+      if: always()
     
     - name: 运行 UI 测试
       run: |
@@ -41,20 +39,13 @@ jobs:
         BASE_URL: http://localhost:8080/opencart
       continue-on-error: true
     
-    - name: 安装 Allure
-      run: |
-        curl -sL https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.zip -o allure.zip
-        unzip allure.zip
-        echo "$PWD/allure-2.29.0/bin" >> $GITHUB_PATH
-      if: always()
-    
     - name: 生成 Allure 报告
       if: always()
       run: |
         if [ -d "./allure-results" ] && [ "$(ls -A ./allure-results)" ]; then
           allure generate ./allure-results -o ./allure-report --clean
         else
-          echo "⚠️ 没有测试数据，跳过报告生成"
+          echo "⚠️ 没有测试数据，生成空报告"
           mkdir -p ./allure-report
           echo "<h1>测试未运行或无数据</h1>" > ./allure-report/index.html
         fi
