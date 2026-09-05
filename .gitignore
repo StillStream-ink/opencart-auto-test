@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 虚拟环境
+.venv/
+venv/
+
+# 测试报告
+allure-report/
+allure-results/
+allure-history/
+*.html
+
+# 环境变量（含敏感信息）
+.env
+
+# IDE
+.vscode/
+.idea/
+*.log
+
+# 其他
+.pytest_cache/

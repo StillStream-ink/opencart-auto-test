@@ -1,11 +1,11 @@
 from playwright.sync_api import Page
 from pages.base_page import BasePage
-
+from config import BASE_URL
 
 class LoginPage(BasePage):
     def __init__(self, page: Page):
         super().__init__(page)
-        self.url = "http://127.0.0.1/opencart/index.php?route=account/login"
+        self.url = f"{BASE_URL}/index.php?route=account/login"
 
         self.email_input = "#input-email"
         self.password_input = "#input-password"
