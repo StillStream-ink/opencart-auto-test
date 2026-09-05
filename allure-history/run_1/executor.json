@@ -1,6 +1,0 @@
-{
-  "name": "OpenCart UI Automation",
-  "type": "local",
-  "reportUrl": "https://github.com/\u4f60\u7684\u7528\u6237\u540d/opencart-auto-test",
-  "buildName": "OpenCart Playwright Tests"
-}
