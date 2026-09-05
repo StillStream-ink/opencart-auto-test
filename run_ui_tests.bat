@@ -9,26 +9,16 @@ echo   OpenCart UI 自动化测试
 echo ========================================
 
 echo.
-echo [1/4] 运行所有测试...
-py -m pytest tests/ -v --alluredir=./allure-results --clean-alluredir
+echo [1/4] 运行测试（不清空历史数据，用于趋势图累积）...
+REM 去掉 --clean-alluredir，让多次运行的数据累积
+py -m pytest tests/ -v --alluredir=./allure-results
 
 echo.
-echo [2/4] 生成 Allure 报告（含历史趋势）...
-if exist ".\allure-history" (
-    allure generate ./allure-results -o ./allure-report --clean --history ./allure-history
-) else (
-    allure generate ./allure-results -o ./allure-report --clean
-)
+echo [2/4] 生成 Allure 报告（不带 --history，Allure 会自动扫描所有历史数据）...
+allure generate ./allure-results -o ./allure-report --clean
 
 echo.
-echo [3/4] 保存本次数据到历史...
-set timestamp=%date:~0,4%%date:~5,2%%date:~8,2%_%time:~0,2%%time:~3,2%%time:~6,2%
-set timestamp=%timestamp: =0%
-if not exist ".\allure-history" mkdir allure-history
-xcopy /E /I .\allure-results .\allure-history\run_%timestamp% >nul
-
-echo.
-echo [4/4] 修改报告标题...
+echo [3/4] 修改报告标题...
 powershell -Command "$file = 'allure-report/index.html'; $content = Get-Content $file -Raw -Encoding UTF8; $newContent = $content -replace '<title>Allure Report</title>', '<title>OpenCart 自动化测试报告</title>'; $newContent | Out-File $file -Encoding UTF8"
 
 echo.
@@ -37,6 +27,5 @@ echo 📊 报告路径：%PROJECT_DIR%\allure-report\index.html
 
 echo.
 echo ===== 打开报告 =====
-start "" "./allure-report/index.html"
-
+allure open ./allure-report
 pause

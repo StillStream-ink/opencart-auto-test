@@ -104,7 +104,7 @@ Report.Title=OpenCart 自动化测试报告
 @pytest.fixture(autouse=True)
 def set_browser_window(page):
     """固定浏览器视口大小，并居中窗口"""
-    # 设置视口大小（视口 = 浏览器内部区域）
+    # 设置视口大小（视口 = 浏览器内部区域set PW_VIEWPORT_WIDTH=1600）
     page.set_viewport_size({"width": 1600, "height": 900})
     # 尝试将浏览器窗口移到屏幕左上角（部分浏览器允许）
     try:

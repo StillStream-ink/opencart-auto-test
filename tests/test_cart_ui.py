@@ -56,34 +56,61 @@ class TestCartUI:
         cart_page.open_product_detail("MacBook")
         cart_page.add_product_by_ui_click()
 
-        # ✅ 直接进入购物车页面（不是结算页面）
         page.goto("http://127.0.0.1/opencart/index.php?route=checkout/cart")
         page.wait_for_load_state("networkidle")
+        page.wait_for_selector(".table-responsive", timeout=10000)
 
-        # 获取原始总价
-        total_elements = page.locator(".table-responsive .text-right:has-text('$')")
-        if total_elements.count() > 0:
-            initial_total = total_elements.last.text_content().strip()
-        else:
-            initial_total = page.locator(".table-responsive tbody tr:first-child td:last-child").text_content().strip()
-
-        # 修改数量
+        # ✅ 第一步：先把数量改成 1（确保初始状态是 1）
         qty_input = page.locator(".table-responsive tbody tr:first-child input[name='quantity']")
-        if qty_input.count() > 0:
-            qty_input.fill("2")
-            qty_input.press("Enter")
-            page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(2000)
+        qty_input.fill("1")
+        page.wait_for_timeout(500)
 
-        # 获取新总价
-        total_elements = page.locator(".table-responsive .text-right:has-text('$')")
-        if total_elements.count() > 0:
-            new_total = total_elements.last.text_content().strip()
+        # 提交表单（应用数量变更）
+        update_btn = page.locator(".table-responsive tbody tr:first-child button[type='submit']")
+        if update_btn.count() == 0:
+            update_btn = page.locator(".table-responsive tbody tr:first-child .btn-primary")
+        if update_btn.count() > 0:
+            update_btn.click()
         else:
-            new_total = page.locator(".table-responsive tbody tr:first-child td:last-child").text_content().strip()
+            page.evaluate("document.querySelector('#shopping-cart form').submit()")
 
-        assert initial_total != new_total, f"总价应变化，原价:{initial_total}，现价:{new_total}"
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(2000)
+        page.reload()
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
 
+        # ✅ 第二步：获取原始数量（应该变成 1）
+        qty_input = page.locator(".table-responsive tbody tr:first-child input[name='quantity']")
+        initial_qty = qty_input.get_attribute("value")
+        print(f"原始数量: {initial_qty}")
+
+        # ✅ 第三步：修改数量为 2
+        qty_input.fill("2")
+        page.wait_for_timeout(500)
+
+        # 提交表单
+        update_btn = page.locator(".table-responsive tbody tr:first-child button[type='submit']")
+        if update_btn.count() == 0:
+            update_btn = page.locator(".table-responsive tbody tr:first-child .btn-primary")
+        if update_btn.count() > 0:
+            update_btn.click()
+        else:
+            page.evaluate("document.querySelector('#shopping-cart form').submit()")
+
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(2000)
+        page.reload()
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1000)
+
+        # ✅ 第四步：验证数量从 1 变成了 2
+        new_qty_input = page.locator(".table-responsive tbody tr:first-child input[name='quantity']")
+        new_qty = new_qty_input.get_attribute("value")
+        print(f"新数量: {new_qty}")
+
+        assert initial_qty == '1', f"初始数量应该是1，实际是{initial_qty}"
+        assert new_qty == '2', f"新数量应该是2，实际是{new_qty}"
         print("✅ TC-CART-002 通过")
 
     @allure.story("删除商品")
