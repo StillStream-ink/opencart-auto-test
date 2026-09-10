@@ -1,4 +1,3 @@
-# config.py
 import os
 
 # 从环境变量读取，如果没有则使用默认值

@@ -1,10 +1,19 @@
+import os
 import requests
 import sys
 from datetime import datetime
 
 # ========== 配置区 ==========
-WEBHOOK_URL = "https://open.feishu.cn/open-apis/bot/v2/hook/9bdcd568-c176-4fe6-acd3-d69d4177129e"
+# Webhook 从环境变量读取，避免泄露
+WEBHOOK_URL = os.getenv("FEISHU_WEBHOOK", "")
+if not WEBHOOK_URL:
+    raise ValueError(
+        "未配置 FEISHU_WEBHOOK 环境变量。\n"
+        "本地开发：在 .env 文件或系统环境变量中配置\n"
+        "命令行示例：$env:FEISHU_WEBHOOK='https://open.feishu.cn/open-apis/bot/v2/hook/xxx'"
+    )
 # ===========================
+
 
 def send_markdown_message(title, status, total, passed, failed, skipped, duration):
     """发送 Markdown 格式消息到飞书"""
@@ -52,7 +61,7 @@ def send_markdown_message(title, status, total, passed, failed, skipped, duratio
                 "zh_cn": {
                     "title": title,
                     "content": [
-                        [{"tag": "text", "text": content}]
+                        [{"tag": "lark_md", "text": content}]
                     ]
                 }
             }
@@ -68,6 +77,7 @@ def send_markdown_message(title, status, total, passed, failed, skipped, duratio
     else:
         print(f"[FAIL] 发送失败：{result}")
         return False
+
 
 if __name__ == "__main__":
     if len(sys.argv) >= 6:

@@ -5,6 +5,12 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+class ElementClickError(Exception):
+    """元素点击失败异常"""
+    pass
+
+
 class BasePage:
     def __init__(self, page: Page):
         self.page: Page = page
@@ -22,9 +28,9 @@ class BasePage:
                 logger.info("点击成功")
                 return
             except Exception as err:
-                logger.warning(f"点击失败，第{attempt+1}次重试: {err}")
+                logger.warning(f"点击失败，第{attempt + 1}次重试: {err}")
                 self.page.wait_for_timeout(1000)
-        raise Exception("元素多次点击失败")
+        raise ElementClickError(f"元素多次点击失败: {locator}")
 
     def input_text(self, locator: Locator, text: str, timeout=12000):
         """输入文本，先清空"""

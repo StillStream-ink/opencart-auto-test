@@ -51,28 +51,24 @@ class TestRegisterUI:
         reg_page = RegisterPage(page)
         reg_page.navigate()
         reg_page.register("Auto", "Test", "alipuser", "Test1234", agree=True)
-        
-        page.wait_for_timeout(1000)
+        page.wait_for_timeout(2000)
+
+        # ✅ 修复：核心断言——不能注册成功（URL 不能变成 success/account）
+        assert "success" not in page.url and "account/account" not in page.url, \
+            f"无效邮箱竟然注册成功，URL: {page.url}"
+
+        # 附加检查：如果有错误提示更好
         body_text = page.locator("body").inner_text()
-        
-        # 同时检查中英文错误提示
         has_error = (
-            "请在电子邮件地址中包括" in body_text or
-            "电子邮件地址无效" in body_text or
             "E-Mail Address does not appear to be valid" in body_text or
-            "invalid email" in body_text.lower()
+            "电子邮件地址无效" in body_text or
+            "请在电子邮件地址中包括" in body_text
         )
-        
         if has_error:
-            print("✅ 检测到邮箱格式错误提示")
+            print("✅ TC-UI-REG-003 通过（检测到邮箱格式错误提示）")
+        else:
+            print("⚠️ 未显示错误提示，但未注册成功（可能是前端校验拦截）")
             print("✅ TC-UI-REG-003 通过")
-            return
-        
-        if "success" in page.url or "account/account" in page.url:
-            print("⚠️ 注册成功，环境未校验邮箱格式，用例标记为通过")
-            return
-        
-        print("✅ 页面未跳转，存在校验，用例通过")
 
     @allure.story("字段校验")
     @allure.title("TC-UI-REG-004: 注册-密码小于6位")

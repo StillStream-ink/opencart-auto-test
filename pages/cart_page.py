@@ -1,9 +1,10 @@
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 from pages.base_page import BasePage
 from config import BASE_URL
-
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 class CartPage(BasePage):
     def __init__(self, page: Page):
@@ -29,13 +30,11 @@ class CartPage(BasePage):
         self.input_text(self.search_input, product_name)
         self.click(self.search_btn)
         self.page.wait_for_load_state("networkidle")
-        # 确保有商品列表
         self.page.wait_for_selector("#product-list", timeout=5000)
         if self.page.locator("#product-list .product-thumb").count() == 0:
             raise Exception(f"未找到商品: {product_name}")
 
     def open_product_detail(self, product_name: str):
-        # 使用包含文本，忽略大小写
         locator = self.product_list.locator(f".product-thumb a:has-text('{product_name}')").first
         locator.wait_for(state="visible", timeout=10000)
         self.click(locator)
@@ -45,15 +44,14 @@ class CartPage(BasePage):
         add_btn = self.page.locator(self.add_to_cart_btn_selector)
         add_btn.wait_for(state="visible", timeout=10000)
         add_btn.click()
-        # 等待成功弹窗
         self.alert_success.wait_for(state="visible", timeout=8000)
-        print("✅ 商品加入购物车成功")
-        self.page.wait_for_timeout(1000)   # 短暂等待后台写入
+        logger.info("商品加入购物车成功")
+        self.page.wait_for_timeout(1000)
 
     def search_and_add_product(self, product_name: str):
-        print(f"开始流程：搜索商品 {product_name}")
+        logger.info(f"开始流程：搜索商品 {product_name}")
         self.search_product(product_name)
-        print("搜索完成，打开商品详情页")
+        logger.info("搜索完成，打开商品详情页")
         self.open_product_detail(product_name)
         self.add_product_by_ui_click()
 
@@ -62,7 +60,7 @@ class CartPage(BasePage):
         self.page.goto(f"{BASE_URL}/index.php?route=checkout/cart")
         self.page.wait_for_load_state("networkidle")
         self.page.wait_for_timeout(1000)
-        # 重试最多 3 次（刷新页面）
+
         for attempt in range(3):
             item_count = self.cart_item.count()
             if item_count > 0:
@@ -70,27 +68,25 @@ class CartPage(BasePage):
             self.page.reload()
             self.page.wait_for_timeout(1000)
         else:
-            # 最终仍为空，截图并抛出详细错误
             self.page.screenshot(path="cart_empty_debug.png", full_page=True)
             raise Exception("购物车为空，尝试 3 次后仍为空，请检查商品是否成功添加")
 
-        print("✅购物车商品校验通过")
-        print("开始寻找Checkout按钮")
+        logger.info("购物车商品校验通过，开始寻找 Checkout 按钮")
         checkout_btn = self.page.locator(self.checkout_btn_selector)
         checkout_btn.wait_for(state="visible", timeout=12000)
         checkout_btn.click()
-        print("✅点击Checkout按钮，跳转结算页面")
+        logger.info("点击 Checkout 按钮，跳转结算页面")
 
     def clear_cart(self):
         """清空购物车所有商品，前置调用，防止商品累加"""
-        self.page.goto(f"{BASE_URL}index.php?route=checkout/cart")
+        self.page.goto(f"{BASE_URL}/index.php?route=checkout/cart")
         delete_btn = self.page.locator("button[name='remove']")
         while delete_btn.count() > 0:
             self.click(delete_btn.first)
             self.wait_network_idle()
         logger.info("购物车已清空")
 
-    # ==================== 新增购物车管理方法 ====================
+    # ==================== 购物车管理方法 ====================
 
     def get_cart_total(self):
         """获取购物车商品总价"""
@@ -111,11 +107,7 @@ class CartPage(BasePage):
             return 0
 
     def update_cart_quantity(self, row_index: int, quantity: int):
-        """
-        修改购物车指定行的数量
-        row_index: 第几行（从1开始）
-        quantity: 目标数量
-        """
+        """修改购物车指定行的数量"""
         try:
             quantity_input = self.page.locator(
                 f".table-responsive tbody tr:nth-child({row_index}) input[name='quantity']"
@@ -123,7 +115,6 @@ class CartPage(BasePage):
             quantity_input.wait_for(state="visible", timeout=5000)
             quantity_input.fill(str(quantity))
 
-            # 点击更新按钮（多种定位方式兜底）
             update_btn = self.page.locator(
                 f".table-responsive tbody tr:nth-child({row_index}) button[type='submit']"
             )
@@ -143,12 +134,8 @@ class CartPage(BasePage):
             raise
 
     def remove_cart_item(self, row_index: int):
-        """
-        删除购物车指定行的商品
-        row_index: 第几行（从1开始）
-        """
+        """删除购物车指定行的商品"""
         try:
-            # 多种删除按钮定位方式
             remove_btn = self.page.locator(
                 f".table-responsive tbody tr:nth-child({row_index}) button[data-bs-target*='remove']"
             )
@@ -182,19 +169,13 @@ class CartPage(BasePage):
         return ""
 
     def get_cart_items_info(self):
-        """
-        获取购物车所有商品信息
-        返回: list of dict, 每个dict包含 name, quantity, price
-        """
+        """获取购物车所有商品信息"""
         items = []
         try:
             rows = self.page.locator(".table-responsive tbody tr").all()
             for row in rows:
-                # 获取商品名称
                 name = row.locator("td:first-child a").text_content().strip() if row.locator("td:first-child a").count() > 0 else ""
-                # 获取数量
                 quantity = row.locator("input[name='quantity']").get_attribute("value") if row.locator("input[name='quantity']").count() > 0 else ""
-                # 获取价格
                 price = row.locator("td:last-child").text_content().strip() if row.locator("td:last-child").count() > 0 else ""
                 items.append({
                     "name": name,

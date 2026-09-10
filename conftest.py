@@ -3,6 +3,9 @@ import allure
 import os
 import json
 
+from pages.login_page import LoginPage
+from config import TEST_EMAIL, TEST_PASSWORD
+
 
 # ========== 1. 浏览器视口配置 ==========
 @pytest.fixture(scope="session")
@@ -10,20 +13,34 @@ def browser_context_args(browser_context_args):
     return {
         **browser_context_args,
         "viewport": {"width": 1920, "height": 1080},
-        # ✅ 设置窗口位置（左上角）
         "no_viewport": False,
     }
 
-# ✅ 添加一个 fixture 设置窗口位置
+
+# ========== 2. 固定浏览器视口大小 ==========
 @pytest.fixture(autouse=True)
-def set_window_position(page):
-    """设置浏览器窗口位置为屏幕左上角"""
+def set_browser_window(page):
+    """固定浏览器视口大小，并尝试移动到屏幕左上角"""
     page.set_viewport_size({"width": 1600, "height": 900})
-    # 用 JavaScript 移动窗口（Playwright 原生不支持移动窗口，但可以用 page.evaluate）
-    page.evaluate("window.moveTo(0, 0)")
+    try:
+        page.evaluate("window.moveTo(0, 0)")
+    except Exception:
+        pass  # 无头模式忽略
     yield
 
-# ========== 2. 失败自动截图 ==========
+
+# ========== 3. 已登录的 page Fixture ==========
+@pytest.fixture
+def logged_in_page(page):
+    """返回已完成登录的 page 对象，供购物车、结算等用例复用"""
+    login_page = LoginPage(page)
+    login_page.navigate()
+    login_page.login(TEST_EMAIL, TEST_PASSWORD)
+    login_page.verify_login_success()
+    return page
+
+
+# ========== 4. 失败自动截图 ==========
 @pytest.fixture(autouse=True)
 def capture_screenshot(request, page):
     yield
@@ -43,22 +60,14 @@ def pytest_runtest_makereport(item, call):
     setattr(item, "rep_" + rep.when, rep)
 
 
-# ========== 3. 设置 Allure 报告标题 ==========
-@pytest.hookimpl(tryfirst=True)
-def pytest_configure(config):
-    """设置 Allure 报告标题"""
-    # 通过环境变量设置标题
-    os.environ["ALLURE_REPORT_NAME"] = "OpenCart 自动化测试报告"
-
-
-# ========== 4. 测试结束后生成 Allure 配置文件 ==========
+# ========== 5. 测试结束后生成 Allure 配置文件 ==========
 @pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session, exitstatus):
     """测试结束后生成 Allure 环境配置和执行者信息"""
     allure_dir = "./allure-results"
     os.makedirs(allure_dir, exist_ok=True)
 
-    # ===== 4.1 environment.properties =====
+    # ===== 5.1 environment.properties =====
     env_content = """Browser=Microsoft Edge
 Browser.Version=127
 OS=Windows 10
@@ -72,7 +81,7 @@ Report.Title=OpenCart 自动化测试报告
     with open(env_path, "w", encoding="utf-8") as f:
         f.write(env_content)
 
-    # ===== 4.2 executor.json =====
+    # ===== 5.2 executor.json =====
     executor_content = {
         "name": "OpenCart UI Automation",
         "type": "local",
@@ -82,7 +91,7 @@ Report.Title=OpenCart 自动化测试报告
     with open(executor_path, "w", encoding="utf-8") as f:
         json.dump(executor_content, f, indent=2)
 
-    # ===== 4.3 categories.json（自定义缺陷分类，可选） =====
+    # ===== 5.3 categories.json =====
     categories_content = [
         {
             "name": "Product defects",
@@ -99,16 +108,10 @@ Report.Title=OpenCart 自动化测试报告
     with open(categories_path, "w", encoding="utf-8") as f:
         json.dump(categories_content, f, indent=2)
 
-    print("\n✅ Allure 环境配置已生成")
+    # ===== 5.4 allure.properties（报告标题） =====
+    props_content = "allure.report.name=OpenCart 自动化测试报告\n"
+    props_path = os.path.join(allure_dir, "allure.properties")
+    with open(props_path, "w", encoding="utf-8") as f:
+        f.write(props_content)
 
-@pytest.fixture(autouse=True)
-def set_browser_window(page):
-    """固定浏览器视口大小，并居中窗口"""
-    # 设置视口大小（视口 = 浏览器内部区域set PW_VIEWPORT_WIDTH=1600）
-    page.set_viewport_size({"width": 1600, "height": 900})
-    # 尝试将浏览器窗口移到屏幕左上角（部分浏览器允许）
-    try:
-        page.evaluate("window.moveTo(0, 0)")
-    except:
-        pass  # 无头模式忽略
-    yield
+    print("\n✅ Allure 环境配置已生成")

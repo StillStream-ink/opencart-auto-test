@@ -1,9 +1,7 @@
-# tests/test_cart_ui.py
 import allure
 from playwright.sync_api import Page
-from pages.login_page import LoginPage
 from pages.cart_page import CartPage
-from config import TEST_EMAIL, TEST_PASSWORD
+from config import BASE_URL
 
 
 @allure.epic("OpenCart UI自动化测试")
@@ -13,22 +11,17 @@ class TestCartUI:
     @allure.story("添加商品")
     @allure.title("TC-CART-001: 添加商品到购物车")
     @allure.severity(allure.severity_level.CRITICAL)
-    def test_add_to_cart_success(self, page: Page):
-        login_page = LoginPage(page)
-        cart_page = CartPage(page)
+    def test_add_to_cart_success(self, logged_in_page: Page):
+        cart_page = CartPage(logged_in_page)
 
-        login_page.navigate()
-        login_page.login(TEST_EMAIL, TEST_PASSWORD)
-        login_page.verify_login_success()
-
-        page.goto("http://127.0.0.1/opencart/")
-        page.wait_for_load_state("networkidle")
+        logged_in_page.goto(f"{BASE_URL}/")
+        logged_in_page.wait_for_load_state("networkidle")
 
         cart_page.search_product("MacBook")
         cart_page.open_product_detail("MacBook")
         cart_page.add_product_by_ui_click()
 
-        alert_success = page.locator(".alert-success:has-text('Success: You have added')")
+        alert_success = logged_in_page.locator(".alert-success:has-text('Success: You have added')")
         assert alert_success.count() > 0, "加购成功提示未出现"
 
         cart_page.go_to_checkout()
@@ -40,23 +33,19 @@ class TestCartUI:
     @allure.story("修改数量")
     @allure.title("TC-CART-002: 购物车修改商品数量")
     @allure.severity(allure.severity_level.CRITICAL)
-    def test_update_cart_quantity(self, page: Page):
-        login_page = LoginPage(page)
+    def test_update_cart_quantity(self, logged_in_page: Page):
+        page = logged_in_page
         cart_page = CartPage(page)
 
-        login_page.navigate()
-        login_page.login(TEST_EMAIL, TEST_PASSWORD)
-        login_page.verify_login_success()
-
         cart_page.clear_cart()
-        page.goto("http://127.0.0.1/opencart/")
+        page.goto(f"{BASE_URL}/")
         page.wait_for_load_state("networkidle")
 
         cart_page.search_product("MacBook")
         cart_page.open_product_detail("MacBook")
         cart_page.add_product_by_ui_click()
 
-        page.goto("http://127.0.0.1/opencart/index.php?route=checkout/cart")
+        page.goto(f"{BASE_URL}/index.php?route=checkout/cart")
         page.wait_for_load_state("networkidle")
         page.wait_for_selector(".table-responsive", timeout=10000)
 
@@ -65,7 +54,6 @@ class TestCartUI:
         qty_input.fill("1")
         page.wait_for_timeout(500)
 
-        # 提交表单（应用数量变更）
         update_btn = page.locator(".table-responsive tbody tr:first-child button[type='submit']")
         if update_btn.count() == 0:
             update_btn = page.locator(".table-responsive tbody tr:first-child .btn-primary")
@@ -80,7 +68,7 @@ class TestCartUI:
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(1000)
 
-        # ✅ 第二步：获取原始数量（应该变成 1）
+        # ✅ 第二步：获取原始数量
         qty_input = page.locator(".table-responsive tbody tr:first-child input[name='quantity']")
         initial_qty = qty_input.get_attribute("value")
         print(f"原始数量: {initial_qty}")
@@ -89,7 +77,6 @@ class TestCartUI:
         qty_input.fill("2")
         page.wait_for_timeout(500)
 
-        # 提交表单
         update_btn = page.locator(".table-responsive tbody tr:first-child button[type='submit']")
         if update_btn.count() == 0:
             update_btn = page.locator(".table-responsive tbody tr:first-child .btn-primary")
@@ -116,24 +103,19 @@ class TestCartUI:
     @allure.story("删除商品")
     @allure.title("TC-CART-003: 购物车删除商品")
     @allure.severity(allure.severity_level.CRITICAL)
-    def test_remove_cart_item(self, page: Page):
-        login_page = LoginPage(page)
+    def test_remove_cart_item(self, logged_in_page: Page):
+        page = logged_in_page
         cart_page = CartPage(page)
 
-        login_page.navigate()
-        login_page.login(TEST_EMAIL, TEST_PASSWORD)
-        login_page.verify_login_success()
-
         cart_page.clear_cart()
-        page.goto("http://127.0.0.1/opencart/")
+        page.goto(f"{BASE_URL}/")
         page.wait_for_load_state("networkidle")
 
         cart_page.search_product("MacBook")
         cart_page.open_product_detail("MacBook")
         cart_page.add_product_by_ui_click()
 
-        # ✅ 直接进入购物车页面（不是结算页面）
-        page.goto("http://127.0.0.1/opencart/index.php?route=checkout/cart")
+        page.goto(f"{BASE_URL}/index.php?route=checkout/cart")
         page.wait_for_load_state("networkidle")
 
         # 使用 JavaScript 强制点击删除按钮
@@ -147,7 +129,6 @@ class TestCartUI:
         page.wait_for_timeout(1000)
         page.wait_for_load_state("networkidle")
 
-        # 验证删除成功
         page.wait_for_timeout(1000)
         item_count = page.locator(".table-responsive tbody tr").count()
         content_text = page.locator("body").inner_text()
@@ -163,7 +144,7 @@ class TestCartUI:
     @allure.title("TC-CART-004: 空购物车展示")
     @allure.severity(allure.severity_level.NORMAL)
     def test_empty_cart_display(self, page: Page):
-        page.goto("http://127.0.0.1/opencart/index.php?route=checkout/cart")
+        page.goto(f"{BASE_URL}/index.php?route=checkout/cart")
         page.wait_for_load_state("networkidle")
 
         delete_btn = page.locator("button[name='remove']")
@@ -181,14 +162,13 @@ class TestCartUI:
         print("✅ TC-CART-004 通过")
 
     @allure.story("未登录加购")
-    @allure.title("TC-CART-005: 未登录加购跳转登录")
+    @allure.title("TC-CART-005: 未登录加购（游客加购或跳转登录）")
     @allure.severity(allure.severity_level.NORMAL)
     def test_add_to_cart_without_login(self, page: Page):
         cart_page = CartPage(page)
 
         page.context.clear_cookies()
-
-        page.goto("http://127.0.0.1/opencart/")
+        page.goto(f"{BASE_URL}/")
         page.wait_for_load_state("networkidle")
 
         cart_page.search_product("MacBook")
@@ -196,13 +176,9 @@ class TestCartUI:
         cart_page.add_product_by_ui_click()
 
         current_url = page.url
-        if "login" in current_url:
-            print("✅ 未登录加购跳转到登录页")
-        else:
-            alert = page.locator(".alert-warning:has-text('login')")
-            if alert.count() > 0:
-                print("✅ 显示需要登录的提示")
-            else:
-                print(f"⚠️ 当前URL: {current_url}")
+        add_success = page.locator(".alert-success:has-text('Success')").count() > 0
+        login_redirect = "login" in current_url
 
-        print("✅ TC-CART-005 通过")
+        assert add_success or login_redirect, \
+            f"未登录加购既没成功也没跳转登录，URL: {current_url}"
+        print(f"✅ TC-CART-005 通过（{'游客加购成功' if add_success else '跳转登录页'}）")

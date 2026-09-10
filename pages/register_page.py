@@ -1,3 +1,4 @@
+import re
 from playwright.sync_api import Page
 from pages.base_page import BasePage
 from config import BASE_URL
@@ -36,60 +37,40 @@ class RegisterPage(BasePage):
     def get_success_title(self) -> str:
         return self.success_title.text_content() or ""
 
-    def get_firstname_error(self) -> str:
-        loc = self.page.locator("#input-firstname ~ .text-danger")
+    # ========== 通用错误提取 ==========
+    def _get_field_error(self, field_id: str, keyword: str) -> str:
+        """
+        通用字段错误提取：
+        1. 先找 input 旁的 .text-danger
+        2. 再遍历所有 .text-danger 匹配 keyword
+        3. 再找 .alert-danger
+        4. 最后正则匹配整个 body
+        """
+        loc = self.page.locator(f"#{field_id} ~ .text-danger")
         if loc.count() > 0 and loc.first.is_visible():
             return loc.first.text_content().strip()
+
         for el in self.page.locator(".text-danger").all():
             text = el.text_content().strip()
-            if "First Name" in text:
+            if keyword in text:
                 return text
-        alert = self.page.locator(".alert-danger:has-text('First Name')")
+
+        alert = self.page.locator(f".alert-danger:has-text('{keyword}')")
         if alert.count() > 0:
             return alert.first.text_content().strip()
+
         body = self.page.locator("body").inner_text()
-        import re
-        match = re.search(r'First Name must be between[^!]*!?', body)
-        if match:
-            return match.group(0)
-        return ""
+        match = re.search(rf'{keyword}[^!]*!?', body)
+        return match.group(0) if match else ""
+
+    def get_firstname_error(self) -> str:
+        return self._get_field_error("input-firstname", "First Name")
 
     def get_email_error(self) -> str:
-        loc = self.page.locator("#input-email ~ .text-danger")
-        if loc.count() > 0 and loc.first.is_visible():
-            return loc.first.text_content().strip()
-        for el in self.page.locator(".text-danger").all():
-            text = el.text_content().strip()
-            if "E-Mail" in text:
-                return text
-        alert = self.page.locator(".alert-danger:has-text('E-Mail')")
-        if alert.count() > 0:
-            return alert.first.text_content().strip()
-        body = self.page.locator("body").inner_text()
-        import re
-        match = re.search(r'E-Mail Address[^!]*!?', body)
-        if match:
-            return match.group(0)
-        return ""
+        return self._get_field_error("input-email", "E-Mail")
 
     def get_password_error(self) -> str:
-        # 尝试多种选择器
-        loc = self.page.locator("#input-password ~ .text-danger")
-        if loc.count() > 0 and loc.first.is_visible():
-            return loc.first.text_content().strip()
-        for el in self.page.locator(".text-danger").all():
-            text = el.text_content().strip()
-            if "Password" in text:
-                return text
-        alert = self.page.locator(".alert-danger:has-text('Password')")
-        if alert.count() > 0:
-            return alert.first.text_content().strip()
-        body = self.page.locator("body").inner_text()
-        import re
-        match = re.search(r'Password must be between[^!]*!?', body)
-        if match:
-            return match.group(0)
-        return ""
+        return self._get_field_error("input-password", "Password")
 
     def get_alert_error(self) -> str:
         return self.alert_error.text_content() or ""
@@ -97,7 +78,6 @@ class RegisterPage(BasePage):
     # ========== 页面操作封装 ==========
     def fill_firstname(self, value: str):
         self.input_text(self.firstname_input, value)
-
 
     def fill_lastname(self, value: str):
         self.input_text(self.lastname_input, value)
