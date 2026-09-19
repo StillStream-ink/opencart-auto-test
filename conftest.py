@@ -2,10 +2,24 @@ import pytest
 import allure
 import os
 import json
+import logging
 
 from pages.login_page import LoginPage
 from config import TEST_EMAIL, TEST_PASSWORD
 
+# 创建日志目录
+os.makedirs("logs", exist_ok=True)
+
+# 配置日志：同时输出到控制台和文件
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("logs/test_run.log", encoding="utf-8")
+    ],
+    force=True   
+)
 
 # ========== 1. 浏览器视口配置 ==========
 @pytest.fixture(scope="session")
