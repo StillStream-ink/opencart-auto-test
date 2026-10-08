@@ -44,7 +44,7 @@ class RegisterPage(BasePage):
         1. 先找 input 旁的 .text-danger
         2. 再遍历所有 .text-danger 匹配 keyword
         3. 再找 .alert-danger
-        4. 最后正则匹配整个 body
+        4. 最后正则匹配整个 body（✅ keyword 已 re.escape）
         """
         loc = self.page.locator(f"#{field_id} ~ .text-danger")
         if loc.count() > 0 and loc.first.is_visible():
@@ -60,7 +60,7 @@ class RegisterPage(BasePage):
             return alert.first.text_content().strip()
 
         body = self.page.locator("body").inner_text()
-        match = re.search(rf'{keyword}[^!]*!?', body)
+        match = re.search(rf'{re.escape(keyword)}[^!]*!?', body)   # ✅ P0 修复
         return match.group(0) if match else ""
 
     def get_firstname_error(self) -> str:
