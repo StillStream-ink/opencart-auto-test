@@ -1,25 +1,25 @@
 import re
-from playwright.sync_api import Page
+from selenium.webdriver.common.by import By
 from pages.base_page import BasePage
 from config import BASE_URL
 
 
 class RegisterPage(BasePage):
-    def __init__(self, page: Page):
-        super().__init__(page)
+    def __init__(self, driver):
+        super().__init__(driver)
         self.url = f"{BASE_URL}/index.php?route=account/register"
-
-        self.firstname_input = page.locator("#input-firstname")
-        self.lastname_input = page.locator("#input-lastname")
-        self.email_input = page.locator("#input-email")
-        self.password_input = page.locator("#input-password")
-        self.privacy_checkbox = page.locator("input[name='agree']")
-        self.continue_btn = page.get_by_role("button", name="Continue")
-        self.success_title = page.locator("#content h1")
-        self.alert_error = page.locator(".alert-danger")
+        self.firstname_input = (By.ID, "input-firstname")
+        self.lastname_input = (By.ID, "input-lastname")
+        self.email_input = (By.ID, "input-email")
+        self.password_input = (By.ID, "input-password")
+        self.privacy_checkbox = (By.CSS_SELECTOR, "input[name='agree']")
+        self.continue_btn = (By.XPATH, "//button[normalize-space()='Continue']")
+        self.success_title = (By.CSS_SELECTOR, "#content h1")
+        self.alert_error = (By.CSS_SELECTOR, ".alert-danger")
 
     def navigate(self):
-        self.page.goto(self.url, wait_until="networkidle")
+        self.goto(self.url)
+        self.wait_network_idle(wait_sec=2)
         return self
 
     def register(self, firstname: str, lastname: str, email: str, password: str, agree: bool = True):
@@ -30,52 +30,61 @@ class RegisterPage(BasePage):
         if agree:
             self.check_privacy()
         self.click_continue()
-        self.page.wait_for_load_state("networkidle")
-        self.page.wait_for_timeout(2000)
+        self.wait_network_idle(wait_sec=2)
         return self
 
     def get_success_title(self) -> str:
-        return self.success_title.text_content() or ""
+        elem = self.find_element(self.success_title)
+        return elem.text.strip()
 
-    # ========== 通用错误提取 ==========
     def _get_field_error(self, field_id: str, keyword: str) -> str:
         """
         通用字段错误提取：
         1. 先找 input 旁的 .text-danger
         2. 再遍历所有 .text-danger 匹配 keyword
         3. 再找 .alert-danger
-        4. 最后正则匹配整个 body（✅ keyword 已 re.escape）
+        4. 最后正则匹配整个 body
         """
-        loc = self.page.locator(f"#{field_id} ~ .text-danger")
-        if loc.count() > 0 and loc.first.is_visible():
-            return loc.first.text_content().strip()
+        loc_field_err = (By.CSS_SELECTOR, f"#{field_id} ~ .text-danger")
+        try:
+            elem = self.find_element(loc_field_err)
+            txt = elem.text.strip()
+            if keyword in txt:
+                return txt
+        except Exception:
+            pass
 
-        for el in self.page.locator(".text-danger").all():
-            text = el.text_content().strip()
-            if keyword in text:
-                return text
+        danger_elems = self.driver.find_elements(By.CSS_SELECTOR, ".text-danger")
+        for el in danger_elems:
+            t = el.text.strip()
+            if keyword in t:
+                return t
 
-        alert = self.page.locator(f".alert-danger:has-text('{keyword}')")
-        if alert.count() > 0:
-            return alert.first.text_content().strip()
+        try:
+            alert_elem = self.find_element(self.alert_error)
+            alert_txt = alert_elem.text.strip()
+            if keyword in alert_txt:
+                return alert_txt
+        except Exception:
+            pass
 
-        body = self.page.locator("body").inner_text()
-        match = re.search(rf'{re.escape(keyword)}[^!]*!?', body)   # ✅ P0 修复
-        return match.group(0) if match else ""
+        body_text = self.find_element((By.TAG_NAME, "body")).text
+        match = re.search(rf'{re.escape(keyword)}[^!]*!?', body_text)
+        return match.group(0).strip() if match else ""
 
     def get_firstname_error(self) -> str:
         return self._get_field_error("input-firstname", "First Name")
 
     def get_email_error(self) -> str:
-        return self._get_field_error("input-email", "E-Mail")
+        return self._get_field_error("input-email", "E‑Mail")
 
     def get_password_error(self) -> str:
         return self._get_field_error("input-password", "Password")
 
     def get_alert_error(self) -> str:
-        return self.alert_error.text_content() or ""
+        elem = self.find_element(self.alert_error)
+        return elem.text.strip()
 
-    # ========== 页面操作封装 ==========
     def fill_firstname(self, value: str):
         self.input_text(self.firstname_input, value)
 
@@ -89,7 +98,9 @@ class RegisterPage(BasePage):
         self.input_text(self.password_input, value)
 
     def check_privacy(self):
-        self.privacy_checkbox.check()
+        cb = self.find_element(self.privacy_checkbox)
+        if not cb.is_selected():
+            cb.click()
 
     def click_continue(self):
         self.click(self.continue_btn)

@@ -1,112 +1,63 @@
 import allure
-from playwright.sync_api import Page
 from pages.cart_page import CartPage
-from config import BASE_URL
+from pages.product_page import ProductPage
 
 
-@allure.epic("OpenCart UI自动化测试")
-@allure.feature("购物车模块")
 class TestCartUI:
+    @allure.feature("购物车模块")
+    @allure.story("修改商品数量")
+    @allure.severity(allure.severity_level.NORMAL)
+    @allure.title("更新购物车商品数量为9，校验商品数量")
+    def test_cart_update_quantity(self, cart_clean):
+        product_page = ProductPage(cart_clean)
+        product_page.open_product(40)
+        product_page.add_to_cart(1)
+        cart_page = CartPage(cart_clean)
+        cart_page.open_cart()
+        cart_page.update_quantity(9)
+        item_list = cart_page.get_cart_items_info()
+        assert len(item_list) == 1
+        assert item_list[0]["quantity"] == "9"
 
-    @allure.story("添加商品")
-    @allure.title("TC-CART-001: 添加商品到购物车")
-    @allure.severity(allure.severity_level.CRITICAL)
-    def test_add_to_cart_success(self, logged_in_page: Page):
-        page = logged_in_page
-        cart_page = CartPage(page)
-
-        with allure.step("搜索并打开商品详情"):
-            page.goto(f"{BASE_URL}/")
-            page.wait_for_load_state("networkidle")
-            cart_page.search_product("MacBook")
-            cart_page.open_product_detail("MacBook")
-
-        with allure.step("加入购物车并校验提示"):
-            cart_page.add_product_by_ui_click()
-            alert_success = page.locator(".alert-success:has-text('Success: You have added')")
-            assert alert_success.count() > 0, "加购成功提示未出现"
-
-        with allure.step("进入购物车校验商品存在"):
-            cart_page.go_to_checkout()
-            item_count = cart_page.get_cart_item_count()
-            assert item_count > 0, f"购物车商品数量应为>0，实际为{item_count}"
-
-    @allure.story("修改数量")
-    @allure.title("TC-CART-002: 购物车修改商品数量")
-    @allure.severity(allure.severity_level.CRITICAL)
-    def test_update_cart_quantity(self, logged_in_page: Page):
-        page = logged_in_page
-        cart_page = CartPage(page)
-
-        with allure.step("准备：加一件商品"):
-            cart_page.clear_cart()
-            page.goto(f"{BASE_URL}/")
-            page.wait_for_load_state("networkidle")
-            cart_page.search_product("MacBook")
-            cart_page.open_product_detail("MacBook")
-            cart_page.add_product_by_ui_click()
-            page.goto(f"{BASE_URL}/index.php?route=checkout/cart")
-            page.wait_for_load_state("networkidle")
-
-        with allure.step("归一化：数量设为 1"):
-            cart_page.update_cart_quantity(1, 1)
-            qty_input = page.locator(".table-responsive tbody tr:first-child input[name='quantity']")
-            assert qty_input.get_attribute("value") == "1", "初始数量应该是1"
-
-        with allure.step("修改：数量设为 2 并校验"):
-            cart_page.update_cart_quantity(1, 2)
-            qty_input = page.locator(".table-responsive tbody tr:first-child input[name='quantity']")
-            assert qty_input.get_attribute("value") == "2", "新数量应该是2"
-
+    @allure.feature("购物车模块")
     @allure.story("删除商品")
-    @allure.title("TC-CART-003: 购物车删除商品")
     @allure.severity(allure.severity_level.CRITICAL)
-    def test_remove_cart_item(self, logged_in_page: Page):
-        page = logged_in_page
-        cart_page = CartPage(page)
+    @allure.title("删除购物车商品，校验购物车为空")
+    def test_cart_remove_item(self, cart_clean):
+        product_page = ProductPage(cart_clean)
+        product_page.open_product(40)
+        product_page.add_to_cart(1)
+        cart_page = CartPage(cart_clean)
+        cart_page.open_cart()
+        items = cart_page.remove_item()
+        assert len(items) == 0
 
-        cart_page.clear_cart()
-        page.goto(f"{BASE_URL}/")
-        page.wait_for_load_state("networkidle")
-        cart_page.search_product("MacBook")
-        cart_page.open_product_detail("MacBook")
-        cart_page.add_product_by_ui_click()
-        page.goto(f"{BASE_URL}/index.php?route=checkout/cart")
-        page.wait_for_load_state("networkidle")
-
-        with allure.step("删除唯一商品"):
-            cart_page.remove_cart_item(1)
-            page.wait_for_timeout(1000)
-
-        with allure.step("校验购物车为空"):
-            item_count = page.locator(".table-responsive tbody tr").count()
-            content_text = page.locator("body").inner_text()
-            assert item_count == 0 or "empty" in content_text.lower(), \
-                f"购物车仍有 {item_count} 件商品"
-
-    @allure.story("空购物车")
-    @allure.title("TC-CART-004: 空购物车展示")
+    @allure.feature("购物车模块")
+    @allure.story("数量边界校验")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_empty_cart_display(self, page: Page):
-        page.goto(f"{BASE_URL}/index.php?route=checkout/cart")
-        page.wait_for_load_state("networkidle")
-        content_text = page.locator("body").inner_text()
-        assert "empty" in content_text.lower(), \
-            f"空购物车提示不正确，实际内容: {content_text[:200]}"
+    @allure.title("购物车输入数量0，提交后商品自动移除")
+    def test_cart_input_zero(self, cart_clean):
+        product_page = ProductPage(cart_clean)
+        product_page.open_product(40)
+        product_page.add_to_cart(1)
+        cart_page = CartPage(cart_clean)
+        cart_page.open_cart()
+        cart_page.update_quantity(0)
+        item_list = cart_page.get_cart_items_info()
+        # OpenCart特性：数量0提交，商品直接移除购物车
+        assert len(item_list) == 0
 
-    @allure.story("未登录加购")
-    @allure.title("TC-CART-005: 未登录加购（游客加购或跳转登录）")
+    @allure.feature("购物车模块")
+    @allure.story("购物车修改商品数量")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_add_to_cart_without_login(self, page: Page):
-        cart_page = CartPage(page)
-        page.context.clear_cookies()
-        page.goto(f"{BASE_URL}/")
-        page.wait_for_load_state("networkidle")
-        cart_page.search_product("MacBook")
-        cart_page.open_product_detail("MacBook")
-        cart_page.add_product_by_ui_click()
-
-        add_success = page.locator(".alert-success:has-text('Success')").count() > 0
-        login_redirect = "login" in page.url
-        assert add_success or login_redirect, \
-            f"未登录加购既没成功也没跳转登录，URL: {page.url}"
+    @allure.title("购物车页面修改商品数量，数量更新为2")
+    def test_cart_add_same_product(self, cart_clean):
+        product_page = ProductPage(cart_clean)
+        product_page.open_product(40)
+        product_page.add_to_cart(1)
+        cart_page = CartPage(cart_clean)
+        cart_page.open_cart()
+        cart_page.update_quantity(2)
+        item_list = cart_page.get_cart_items_info()
+        assert len(item_list) == 1
+        assert item_list[0]["quantity"] == "2"

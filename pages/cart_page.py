@@ -1,187 +1,62 @@
-from playwright.sync_api import Page
 from pages.base_page import BasePage
-from config import BASE_URL
-import logging
-
-logger = logging.getLogger(__name__)
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+import time
+import allure
 
 
 class CartPage(BasePage):
-    def __init__(self, page: Page):
-        super().__init__(page)
-        self.search_input_selector = "input[name='search']"
-        self.search_btn_selector = ".btn.btn-light"
-        self.add_to_cart_btn_selector = "#button-cart"
-        self.checkout_btn_selector = ".btn:has-text('Checkout')"
-        self.alert_success = self.page.locator(".alert-success")
-        self.cart_empty_text = self.page.locator("#content p:text('Your shopping cart is empty!')")
-        self.cart_item = self.page.locator(".table-responsive tbody tr")
-        self.product_list = self.page.locator("#product-list")
+    def __init__(self, driver):
+        super().__init__(driver)
+        self.cart_rows = (By.CSS_SELECTOR, ".table-responsive tbody tr")
 
-        self.search_input = self.page.locator(self.search_input_selector)
-        self.search_btn = self.page.locator(self.search_btn_selector)
+    @allure.step("打开购物车页面")
+    def open_cart(self):
+        self.goto("http://127.0.0.1/opencart/index.php?route=checkout/cart")
+        # 跳转后给页面渲染时间
+        time.sleep(1)
 
-    def navigate(self):
-        self.page.goto(f"{BASE_URL}/")
-        self.page.wait_for_load_state("networkidle")
+    @allure.step("更新购物车第一件商品数量：{qty}")
+    def update_quantity(self, qty: int):
+        # 等待【可见】的购物车行，而不只是DOM存在
+        self.wait.until(EC.visibility_of_any_elements_located(self.cart_rows))
+        rows = self.driver.find_elements(*self.cart_rows)
+        assert len(rows) > 0, "购物车无商品，无法修改数量"
+        first_row = rows[0]
 
-    def search_product(self, product_name: str):
-        self.search_input.wait_for(state="visible", timeout=10000)
-        self.input_text(self.search_input, product_name)
-        self.click(self.search_btn)
-        self.page.wait_for_load_state("networkidle")
-        self.page.wait_for_selector("#product-list", timeout=5000)
-        if self.page.locator("#product-list .product-thumb").count() == 0:
-            raise Exception(f"未找到商品: {product_name}")
+        qty_input = first_row.find_element(By.CSS_SELECTOR, "input[name='quantity']")
+        btn_update = first_row.find_element(By.CSS_SELECTOR, "button[formaction*='cart.edit']")
 
-    def open_product_detail(self, product_name: str):
-        locator = self.product_list.locator(f".product-thumb a:has-text('{product_name}')").first
-        locator.wait_for(state="visible", timeout=10000)
-        self.click(locator)
-        self.page.wait_for_load_state("networkidle")
+        qty_input.clear()
+        qty_input.send_keys(str(qty))
+        btn_update.click()
+        time.sleep(2)
+        self.driver.refresh()
+        time.sleep(1)
+        return self.get_cart_items_info()
 
-    def add_product_by_ui_click(self):
-        add_btn = self.page.locator(self.add_to_cart_btn_selector)
-        add_btn.wait_for(state="visible", timeout=10000)
-        add_btn.click()
-        self.alert_success.wait_for(state="visible", timeout=8000)
-        logger.info("商品加入购物车成功")
-        self.page.wait_for_timeout(1000)
+    @allure.step("删除购物车内第一件商品")
+    def remove_item(self):
+        self.wait.until(EC.visibility_of_any_elements_located(self.cart_rows))
+        rows = self.driver.find_elements(*self.cart_rows)
+        if len(rows) == 0:
+            return []
+        first_row = rows[0]
+        btn_remove = first_row.find_element(By.CSS_SELECTOR, "a[href*='cart.remove']")
+        btn_remove.click()
+        time.sleep(2)
+        self.driver.refresh()
+        return self.get_cart_items_info()
 
-    def search_and_add_product(self, product_name: str):
-        logger.info(f"开始流程：搜索商品 {product_name}")
-        self.search_product(product_name)
-        logger.info("搜索完成，打开商品详情页")
-        self.open_product_detail(product_name)
-        self.add_product_by_ui_click()
-
-    def go_to_checkout(self):
-        """进入购物车页面，校验商品存在并点击结算"""
-        self.page.goto(f"{BASE_URL}/index.php?route=checkout/cart")
-        self.page.wait_for_load_state("networkidle")
-        self.page.wait_for_timeout(1000)
-
-        for attempt in range(3):
-            item_count = self.cart_item.count()
-            if item_count > 0:
-                break
-            self.page.reload()
-            self.page.wait_for_timeout(1000)
-        else:
-            self.page.screenshot(path="cart_empty_debug.png", full_page=True)
-            raise Exception("购物车为空，尝试 3 次后仍为空，请检查商品是否成功添加")
-
-        logger.info("购物车商品校验通过，开始寻找 Checkout 按钮")
-        checkout_btn = self.page.locator(self.checkout_btn_selector)
-        checkout_btn.wait_for(state="visible", timeout=12000)
-        checkout_btn.click()
-        logger.info("点击 Checkout 按钮，跳转结算页面")
-
-    def clear_cart(self):
-        """清空购物车所有商品，前置调用，防止商品累加"""
-        self.page.goto(f"{BASE_URL}/index.php?route=checkout/cart")
-        delete_btn = self.page.locator("button[name='remove']")
-        while delete_btn.count() > 0:
-            self.click(delete_btn.first)
-            self.wait_network_idle()
-        logger.info("购物车已清空")
-
-    # ==================== 购物车管理方法 ====================
-
-    def get_cart_total(self):
-        """获取购物车商品总价"""
-        try:
-            total = self.page.locator(".table-responsive .text-right:last-child")
-            if total.count() > 0:
-                return total.first.text_content().strip()
-        except Exception as e:
-            logger.warning(f"获取购物车总价失败: {e}")
-        return ""
-
-    def get_cart_item_count(self):
-        """获取购物车商品行数"""
-        try:
-            return self.cart_item.count()
-        except Exception as e:
-            logger.warning(f"获取购物车商品数量失败: {e}")
-            return 0
-
-    def update_cart_quantity(self, row_index: int, quantity: int):
-        """修改购物车指定行的数量"""
-        try:
-            quantity_input = self.page.locator(
-                f".table-responsive tbody tr:nth-child({row_index}) input[name='quantity']"
-            )
-            quantity_input.wait_for(state="visible", timeout=5000)
-            quantity_input.fill(str(quantity))
-
-            update_btn = self.page.locator(
-                f".table-responsive tbody tr:nth-child({row_index}) button[type='submit']"
-            )
-            if update_btn.count() == 0:
-                update_btn = self.page.locator(
-                    f".table-responsive tbody tr:nth-child({row_index}) .btn-primary"
-                )
-            if update_btn.count() > 0:
-                update_btn.click()
-                self.page.wait_for_load_state("networkidle")
-                self.page.wait_for_timeout(1000)
-                logger.info(f"已更新第{row_index}行商品数量为{quantity}")
-            else:
-                raise Exception(f"未找到第{row_index}行的更新按钮")
-        except Exception as e:
-            logger.error(f"更新购物车数量失败: {e}")
-            raise
-
-    def remove_cart_item(self, row_index: int):
-        """删除购物车指定行的商品"""
-        try:
-            remove_btn = self.page.locator(
-                f".table-responsive tbody tr:nth-child({row_index}) button[data-bs-target*='remove']"
-            )
-            if remove_btn.count() == 0:
-                remove_btn = self.page.locator(
-                    f".table-responsive tbody tr:nth-child({row_index}) .btn-danger"
-                )
-            if remove_btn.count() == 0:
-                remove_btn = self.page.locator(
-                    f".table-responsive tbody tr:nth-child({row_index}) button[name='remove']"
-                )
-            if remove_btn.count() > 0:
-                remove_btn.click()
-                self.page.wait_for_load_state("networkidle")
-                self.page.wait_for_timeout(1000)
-                logger.info(f"已删除第{row_index}行商品")
-            else:
-                raise Exception(f"未找到第{row_index}行的删除按钮")
-        except Exception as e:
-            logger.error(f"删除购物车商品失败: {e}")
-            raise
-
-    def get_cart_empty_text(self):
-        """获取空购物车提示文本"""
-        try:
-            empty_text = self.page.locator("#content p:has-text('Your shopping cart is empty!')")
-            if empty_text.count() > 0:
-                return empty_text.first.text_content().strip()
-        except Exception as e:
-            logger.warning(f"获取空购物车提示失败: {e}")
-        return ""
-
+    @allure.step("获取购物车商品列表信息")
     def get_cart_items_info(self):
-        """获取购物车所有商品信息"""
-        items = []
-        try:
-            rows = self.page.locator(".table-responsive tbody tr").all()
-            for row in rows:
-                name = row.locator("td:first-child a").text_content().strip() if row.locator("td:first-child a").count() > 0 else ""
-                quantity = row.locator("input[name='quantity']").get_attribute("value") if row.locator("input[name='quantity']").count() > 0 else ""
-                price = row.locator("td:last-child").text_content().strip() if row.locator("td:last-child").count() > 0 else ""
-                items.append({
-                    "name": name,
-                    "quantity": quantity,
-                    "price": price
-                })
-        except Exception as e:
-            logger.warning(f"获取购物车商品信息失败: {e}")
-        return items
+        item_list = []
+        rows = self.driver.find_elements(*self.cart_rows)
+        for row in rows:
+            try:
+                qty_input = row.find_element(By.CSS_SELECTOR, "input[name='quantity']")
+                qty = qty_input.get_attribute("value")
+                item_list.append({"quantity": qty})
+            except Exception:
+                continue
+        return item_list
